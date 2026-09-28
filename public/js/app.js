@@ -47,6 +47,9 @@
       entry_edit: 'Edit Entry', entry_new: 'New Entry',
       entry_locked: 'This entry is {status} and can no longer be edited.',
       hours: 'Hours', task: 'Task', selectTask: 'Select task', notes: 'Notes', attachments: 'Attachments',
+      shiftStart: 'Start', shiftEnd: 'End', breakMinutes: 'Break (min)',
+      hoursFromShift: 'Calculated from your start and end times.',
+      hoursManual: 'Fill in a start and end time to calculate this automatically.',
       cancel: 'Cancel', saveEntry: 'Save Entry', submitForApproval: 'Submit for Approval',
 
       history_title: 'History', history_sub: 'View your past timesheet entries',
@@ -150,6 +153,9 @@
       entry_edit: "Modifier l'entrée", entry_new: 'Nouvelle entrée',
       entry_locked: 'Cette entrée est {status} et ne peut plus être modifiée.',
       hours: 'Heures', task: 'Tâche', selectTask: 'Choisir une tâche', notes: 'Notes', attachments: 'Pièces jointes',
+      shiftStart: 'Début', shiftEnd: 'Fin', breakMinutes: 'Pause (min)',
+      hoursFromShift: 'Calculé à partir de vos heures de début et de fin.',
+      hoursManual: 'Entrez une heure de début et de fin pour le calcul automatique.',
       cancel: 'Annuler', saveEntry: "Enregistrer l'entrée", submitForApproval: 'Soumettre pour approbation',
 
       history_title: 'Historique', history_sub: 'Consultez vos entrées de temps passées',
@@ -669,10 +675,25 @@
         <div class="sub">${new Date(dateStr + 'T00:00:00').toLocaleDateString(curLocale(), { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
         ${locked ? `<p class="hint">${t('entry_locked', { status: t('status_' + entry.status).toLowerCase() })}</p>` : ''}
         <form id="entryForm">
+          <div class="row row-compact">
+            <div class="col field">
+              <label>${t('shiftStart')}</label>
+              <input type="time" id="entryStart" value="${entry ? esc(entry.startTime || '') : ''}" ${locked ? 'disabled' : ''} />
+            </div>
+            <div class="col field">
+              <label>${t('shiftEnd')}</label>
+              <input type="time" id="entryEnd" value="${entry ? esc(entry.endTime || '') : ''}" ${locked ? 'disabled' : ''} />
+            </div>
+            <div class="col field">
+              <label>${t('breakMinutes')}</label>
+              <input type="number" min="0" max="720" step="5" id="entryBreak" value="${entry && entry.breakMinutes ? entry.breakMinutes : 0}" ${locked ? 'disabled' : ''} />
+            </div>
+          </div>
           <div class="row">
             <div class="col field">
               <label>${t('hours')}</label>
               <input type="number" step="0.25" min="0" max="24" id="entryHours" value="${entry ? entry.hours : 8}" ${locked ? 'disabled' : ''} required />
+              <div class="hint" id="entryHoursHint"></div>
             </div>
             <div class="col field">
               <label>${t('task')}</label>
@@ -703,13 +724,60 @@
     modalRoot.addEventListener('click', (e) => { if (e.target === modalRoot) modalRoot.remove(); });
     document.getElementById('cancelEntry').onclick = () => modalRoot.remove();
 
+    const startEl = document.getElementById('entryStart');
+    const endEl = document.getElementById('entryEnd');
+    const breakEl = document.getElementById('entryBreak');
+    const hoursEl = document.getElementById('entryHours');
+    const hintEl = document.getElementById('entryHoursHint');
+
+    // Preview only. shiftHours() on the server decides what is actually stored,
+    // so this never becomes the authority on how long anyone worked.
+    function previewShiftHours(start, end, brk) {
+      const mins = (v) => {
+        const m = /^(\d{1,2}):(\d{2})$/.exec(String(v || '').trim());
+        if (!m) return null;
+        const h = Number(m[1]);
+        const mi = Number(m[2]);
+        return h > 23 || mi > 59 ? null : h * 60 + mi;
+      };
+      const a = mins(start);
+      const b = mins(end);
+      if (a === null || b === null) return null;
+      let span = b - a;
+      if (span <= 0) span += 24 * 60;
+      const worked = span - Math.max(0, Number(brk) || 0);
+      return worked > 0 ? Math.round((worked / 60) * 100) / 100 : null;
+    }
+
+    function syncHoursFromShift() {
+      const calculated = previewShiftHours(startEl.value, endEl.value, breakEl.value);
+      if (calculated === null) {
+        // No usable shift: the hours field goes back to being typed by hand,
+        // which is how a holiday or a sick day gets logged.
+        hoursEl.readOnly = false;
+        hintEl.textContent = startEl.value || endEl.value ? '' : t('hoursManual');
+      } else {
+        hoursEl.value = calculated;
+        hoursEl.readOnly = true;
+        hintEl.textContent = t('hoursFromShift');
+      }
+    }
+
+    if (!locked) {
+      for (const el of [startEl, endEl, breakEl]) el.oninput = syncHoursFromShift;
+      syncHoursFromShift();
+    }
+
     document.getElementById('entryForm').onsubmit = async (e) => {
       e.preventDefault();
-      const hours = document.getElementById('entryHours').value;
+      const hours = hoursEl.value;
+      const startTime = startEl.value;
+      const endTime = endEl.value;
+      const breakMinutes = Number(breakEl.value) || 0;
       const taskTypeId = document.getElementById('entryTask').value || null;
       const notes = document.getElementById('entryNotes').value;
       try {
-        const result = await api('/api/entries', { method: 'POST', body: { date: dateStr, hours, taskTypeId, notes } });
+        const result = await api('/api/entries', { method: 'POST', body: { date: dateStr, hours, startTime, endTime, breakMinutes, taskTypeId, notes } });
         const file = document.getElementById('entryFile').files[0];
         if (file) {
           const fd = new FormData();

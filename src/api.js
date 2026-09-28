@@ -7,6 +7,7 @@ const { sendMail } = require('./mail');
 const { sendJson, sendError, setCookie, clearCookie } = require('./http');
 const {
   currentPayCycle,
+  shiftHours,
   splitRegularOvertime,
   toCsv,
   readJsonBody,
@@ -380,12 +381,47 @@ route('GET', '/api/entries', async (req, res, ctx, params, body, query) => {
   sendJson(res, 200, { entries: rows.map((e) => serializeEntry(e, ttMap)) });
 });
 
+// An entry is logged either as a shift (start, end, optional unpaid break) or as
+// a plain number of hours, which is what a holiday or a sick day looks like.
+// When the times are given they decide the hours: computing here rather than
+// trusting the client keeps the stored hours and the stored times consistent.
+function resolveEntryHours(body, res) {
+  const startTime = String(body.startTime || '').trim();
+  const endTime = String(body.endTime || '').trim();
+  const breakMinutes = Math.max(0, Math.round(Number(body.breakMinutes) || 0));
+
+  if (startTime || endTime) {
+    if (!startTime || !endTime) {
+      sendError(res, 400, 'A shift needs both a start and an end time');
+      return null;
+    }
+    const h = shiftHours(startTime, endTime, breakMinutes);
+    if (h === null) {
+      sendError(res, 400, 'Check the times: use HH:MM, and the break cannot be as long as the shift');
+      return null;
+    }
+    return { hours: h, startTime, endTime, breakMinutes };
+  }
+
+  if (body.hours === undefined) {
+    sendError(res, 400, 'Enter either a start and end time, or a number of hours');
+    return null;
+  }
+  const h = Number(body.hours);
+  if (Number.isNaN(h) || h < 0 || h > 24) {
+    sendError(res, 400, 'Hours must be between 0 and 24');
+    return null;
+  }
+  return { hours: h, startTime: '', endTime: '', breakMinutes: 0 };
+}
+
 route('POST', '/api/entries', async (req, res, ctx, params, body) => {
   if (!requireAuth(ctx, res)) return;
-  const { date, hours, taskTypeId, notes = '' } = body;
-  if (!date || hours === undefined) return sendError(res, 400, 'Date and hours are required');
-  const h = Number(hours);
-  if (Number.isNaN(h) || h < 0 || h > 24) return sendError(res, 400, 'Hours must be between 0 and 24');
+  const { date, taskTypeId, notes = '' } = body;
+  if (!date) return sendError(res, 400, 'Date is required');
+  const resolved = resolveEntryHours(body, res);
+  if (!resolved) return;
+  const h = resolved.hours;
 
   let targetUserId = ctx.user.id;
   if (body.userId !== undefined && ctx.user.role === 'admin') {
@@ -403,18 +439,26 @@ route('POST', '/api/entries', async (req, res, ctx, params, body) => {
       return sendError(res, 409, 'This entry has already been reviewed and can no longer be edited');
     }
     db.prepare(
-      `UPDATE time_entries SET hours = ?, taskTypeId = ?, notes = ?, status = ?, updatedAt = datetime('now')
+      `UPDATE time_entries SET hours = ?, startTime = ?, endTime = ?, breakMinutes = ?,
+              taskTypeId = ?, notes = ?, status = ?, updatedAt = datetime('now')
        WHERE id = ?`
-    ).run(h, taskTypeId || null, notes, status, existing.id);
+    ).run(
+      h, resolved.startTime, resolved.endTime, resolved.breakMinutes,
+      taskTypeId || null, notes, status, existing.id
+    );
     const row = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(existing.id);
     return sendJson(res, 200, { entry: serializeEntry(row, taskTypeMap()) });
   }
 
   const info = db
     .prepare(
-      `INSERT INTO time_entries (userId, date, hours, taskTypeId, notes, status) VALUES (?, ?, ?, ?, ?, ?)`
+      `INSERT INTO time_entries (userId, date, hours, startTime, endTime, breakMinutes, taskTypeId, notes, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
-    .run(targetUserId, date, h, taskTypeId || null, notes, status);
+    .run(
+      targetUserId, date, h, resolved.startTime, resolved.endTime, resolved.breakMinutes,
+      taskTypeId || null, notes, status
+    );
   const row = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(info.lastInsertRowid);
   sendJson(res, 201, { entry: serializeEntry(row, taskTypeMap()) });
 });
@@ -442,9 +486,13 @@ route('PATCH', '/api/entries/:id', async (req, res, ctx, params, body) => {
   if (!assertEntryEditable(entry, ctx.user, res)) return;
   const updates = [];
   const values = [];
-  if (body.hours !== undefined) {
-    updates.push('hours = ?');
-    values.push(Number(body.hours));
+  // Times and hours travel together: changing one without the other would leave
+  // an entry claiming a shift that doesn't add up to its own hours.
+  if (body.startTime !== undefined || body.endTime !== undefined || body.hours !== undefined) {
+    const resolved = resolveEntryHours(body, res);
+    if (!resolved) return;
+    updates.push('hours = ?', 'startTime = ?', 'endTime = ?', 'breakMinutes = ?');
+    values.push(resolved.hours, resolved.startTime, resolved.endTime, resolved.breakMinutes);
   }
   if (body.taskTypeId !== undefined) {
     updates.push('taskTypeId = ?');
