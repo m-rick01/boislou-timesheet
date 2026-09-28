@@ -56,6 +56,10 @@ input, select, textarea { font-family: inherit; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; }
 .row { display: flex; gap: 20px; flex-wrap: wrap; }
 .col { flex: 1; min-width: 220px; }
+/* For short inputs that belong side by side in a narrow modal, where the 220px
+   minimum above would wrap each one onto its own line. */
+.row-compact { gap: 10px; }
+.row-compact .col { min-width: 0; }
 
 label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
 input[type=text], input[type=email], input[type=password], input[type=date], input[type=number], select, textarea {

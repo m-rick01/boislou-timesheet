@@ -54,6 +54,36 @@ function splitRegularOvertime(entries, weeklyThreshold) {
   return { regular, overtime, weeks: byWeek };
 }
 
+// Hours worked for a shift given "HH:MM" start and end and an unpaid break in
+// minutes. Returns null when the input isn't usable, so the caller can reject it
+// rather than silently storing a wrong number of hours.
+function shiftHours(startTime, endTime, breakMinutes) {
+  const toMinutes = (value) => {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(String(value == null ? '' : value).trim());
+    if (!m) return null;
+    const h = Number(m[1]);
+    const min = Number(m[2]);
+    if (h > 23 || min > 59) return null;
+    return h * 60 + min;
+  };
+
+  const start = toMinutes(startTime);
+  const end = toMinutes(endTime);
+  if (start === null || end === null) return null;
+
+  // An end at or before the start is read as a shift running past midnight.
+  let span = end - start;
+  if (span <= 0) span += 24 * 60;
+
+  const brk = Number(breakMinutes);
+  if (Number.isNaN(brk) || brk < 0) return null;
+  const worked = span - brk;
+  // A break that swallows the whole shift is a typo, not a zero-hour day.
+  if (worked <= 0) return null;
+
+  return Math.round((worked / 60) * 100) / 100;
+}
+
 function toCsvValue(v) {
   const s = String(v ?? '');
   if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
@@ -163,6 +193,7 @@ function readMultipart(req, contentType) {
 module.exports = {
   currentPayCycle,
   isoWeekKey,
+  shiftHours,
   splitRegularOvertime,
   toCsv,
   readJsonBody,

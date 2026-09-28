@@ -123,6 +123,21 @@ if (!userColumns.includes('dateOfBirth')) {
   db.exec("ALTER TABLE users ADD COLUMN dateOfBirth TEXT DEFAULT ''");
 }
 
+// Migration: shift start/end and unpaid break, for entries logged as a shift
+// rather than a bare number of hours. `hours` stays the figure everything else
+// reads; when the times are given it is derived from them. Entries logged
+// before this, and ones for a task with no shift, simply leave these empty.
+const entryColumns = db.prepare('PRAGMA table_info(time_entries)').all().map((c) => c.name);
+if (!entryColumns.includes('startTime')) {
+  db.exec("ALTER TABLE time_entries ADD COLUMN startTime TEXT DEFAULT ''");
+}
+if (!entryColumns.includes('endTime')) {
+  db.exec("ALTER TABLE time_entries ADD COLUMN endTime TEXT DEFAULT ''");
+}
+if (!entryColumns.includes('breakMinutes')) {
+  db.exec('ALTER TABLE time_entries ADD COLUMN breakMinutes INTEGER NOT NULL DEFAULT 0');
+}
+
 // Ensure singleton settings row exists.
 const settingsRow = db.prepare('SELECT id FROM settings WHERE id = 1').get();
 if (!settingsRow) {
