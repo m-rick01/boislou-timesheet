@@ -127,6 +127,47 @@ if (!userColumns.includes('dateOfBirth')) {
 // rather than a bare number of hours. `hours` stays the figure everything else
 // reads; when the times are given it is derived from them. Entries logged
 // before this, and ones for a task with no shift, simply leave these empty.
+// Migration: drop UNIQUE(userId, date), which allowed only one entry per person
+// per day. SQLite cannot remove a constraint in place, so the table is rebuilt.
+// Row ids are carried over deliberately — attachments reference them.
+const entryIndexes = db.prepare("PRAGMA index_list('time_entries')").all();
+if (entryIndexes.some((i) => i.origin === 'u')) {
+  const cols = db.prepare('PRAGMA table_info(time_entries)').all().map((c) => c.name);
+  const shared = cols.join(', ');
+  db.exec('PRAGMA foreign_keys = OFF;');
+  db.exec('BEGIN;');
+  try {
+    db.exec(`
+      CREATE TABLE time_entries_rebuilt (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        date TEXT NOT NULL,
+        hours REAL NOT NULL,
+        taskTypeId INTEGER REFERENCES task_types(id),
+        notes TEXT DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','pending','approved','rejected')),
+        reviewedBy INTEGER REFERENCES users(id),
+        reviewedAt TEXT,
+        rejectionReason TEXT DEFAULT '',
+        createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+        updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+        startTime TEXT DEFAULT '',
+        endTime TEXT DEFAULT '',
+        breakMinutes INTEGER NOT NULL DEFAULT 0
+      );
+    `);
+    db.exec(`INSERT INTO time_entries_rebuilt (${shared}) SELECT ${shared} FROM time_entries;`);
+    db.exec('DROP TABLE time_entries;');
+    db.exec('ALTER TABLE time_entries_rebuilt RENAME TO time_entries;');
+    db.exec('COMMIT;');
+  } catch (err) {
+    db.exec('ROLLBACK;');
+    throw err;
+  }
+  db.exec('PRAGMA foreign_keys = ON;');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_time_entries_user_date ON time_entries(userId, date);');
+}
+
 const entryColumns = db.prepare('PRAGMA table_info(time_entries)').all().map((c) => c.name);
 if (!entryColumns.includes('startTime')) {
   db.exec("ALTER TABLE time_entries ADD COLUMN startTime TEXT DEFAULT ''");
