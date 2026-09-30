@@ -45,6 +45,9 @@
       dow: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
 
       entry_edit: 'Edit Entry', entry_new: 'New Entry',
+      day_title: 'Entries for this day', day_addAnother: '+ Add another task',
+      day_total: 'Total: {hours}h', delete_entry: 'Delete',
+      confirmDeleteEntry: 'Delete this entry? This cannot be undone.',
       entry_locked: 'This entry is {status} and can no longer be edited.',
       hours: 'Hours', task: 'Task', selectTask: 'Select task', notes: 'Notes', attachments: 'Attachments',
       shiftStart: 'Start', shiftEnd: 'End', breakMinutes: 'Break (min)',
@@ -151,6 +154,9 @@
       dow: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
 
       entry_edit: "Modifier l'entrée", entry_new: 'Nouvelle entrée',
+      day_title: 'Entrées de la journée', day_addAnother: '+ Ajouter une autre tâche',
+      day_total: 'Total : {hours}h', delete_entry: 'Supprimer',
+      confirmDeleteEntry: 'Supprimer cette entrée ? Cette action est irréversible.',
       entry_locked: 'Cette entrée est {status} et ne peut plus être modifiée.',
       hours: 'Heures', task: 'Tâche', selectTask: 'Choisir une tâche', notes: 'Notes', attachments: 'Pièces jointes',
       shiftStart: 'Début', shiftEnd: 'Fin', breakMinutes: 'Pause (min)',
@@ -571,7 +577,9 @@
       const r = await api(`/api/entries?from=${from}&to=${to}`);
       entries = r.entries;
     } catch (e) { /* ignore */ }
-    const entryByDate = Object.fromEntries(entries.map((e) => [e.date, e]));
+    // A date can hold several entries, one per task worked that day.
+    const entriesByDate = {};
+    for (const e of entries) (entriesByDate[e.date] = entriesByDate[e.date] || []).push(e);
     const totalHours = entries.filter((e) => e.status === 'approved').reduce((a, e) => a + e.hours, 0);
     const draftEntries = entries.filter((e) => e.status === 'draft').sort((a, b) => a.date.localeCompare(b.date));
 
@@ -587,7 +595,7 @@
         </div>
         <div class="calendar-grid">
           ${t('dow').map((d) => `<div class="dow">${d}</div>`).join('')}
-          ${renderCalendarCells(year, month, entryByDate)}
+          ${renderCalendarCells(year, month, entriesByDate)}
         </div>
       </div>
       <div class="legend">
@@ -615,7 +623,14 @@
     document.getElementById('prevMonth').onclick = () => { myTimeMonth.setMonth(myTimeMonth.getMonth() - 1); viewMyTime(); };
     document.getElementById('nextMonth').onclick = () => { myTimeMonth.setMonth(myTimeMonth.getMonth() + 1); viewMyTime(); };
     document.querySelectorAll('.calendar-cell[data-date]').forEach((cell) => {
-      cell.onclick = () => openEntryModal(cell.getAttribute('data-date'), entryByDate[cell.getAttribute('data-date')]);
+      cell.onclick = () => {
+        const date = cell.getAttribute('data-date');
+        const dayEntries = entriesByDate[date] || [];
+        // Straight to a blank entry on an empty day; otherwise the day sheet,
+        // so an existing entry is never silently replaced by a new one.
+        if (dayEntries.length === 0) openEntryModal(date);
+        else openDayModal(date, dayEntries);
+      };
     });
     document.querySelectorAll('[data-submit-entry]').forEach((btn) => {
       btn.onclick = async () => {
@@ -639,7 +654,7 @@
     return h < 12 ? 'greeting_morning' : h < 18 ? 'greeting_afternoon' : 'greeting_evening';
   }
 
-  function renderCalendarCells(year, month, entryByDate) {
+  function renderCalendarCells(year, month, entriesByDate) {
     const firstDow = (new Date(year, month, 1).getDay() + 6) % 7; // Mon=0
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const today = todayStr();
@@ -647,11 +662,15 @@
     for (let i = 0; i < firstDow; i++) cells += `<div class="calendar-cell muted"></div>`;
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = fmtDate(new Date(year, month, d));
-      const entry = entryByDate[dateStr];
+      const dayEntries = entriesByDate[dateStr] || [];
       const isToday = dateStr === today ? ' today' : '';
+      // Cap the pills so a busy day cannot stretch the grid out of shape.
+      const shown = dayEntries.slice(0, 2);
+      const hidden = dayEntries.length - shown.length;
       cells += `<div class="calendar-cell${isToday}" data-date="${dateStr}">
         <div class="date-num">${d}</div>
-        ${entry ? `<div class="entry-pill badge-${entry.status}">${entry.hours}h</div>` : ''}
+        ${shown.map((e) => `<div class="entry-pill badge-${e.status}" title="${esc(e.taskTypeName || '')}">${e.hours}h</div>`).join('')}
+        ${hidden > 0 ? `<div class="entry-more">+${hidden}</div>` : ''}
       </div>`;
     }
     return cells;
@@ -662,6 +681,73 @@
       .filter((t) => t.active || t.id === selectedId)
       .map((tt) => `<option value="${tt.id}" ${tt.id === selectedId ? 'selected' : ''}>${esc(tt.name)}</option>`)
       .join('');
+  }
+
+  // The day sheet: everything logged on one date, so a second task is added
+  // alongside the first rather than on top of it.
+  function openDayModal(dateStr, dayEntries) {
+    const modalRoot = document.createElement('div');
+    modalRoot.className = 'modal-backdrop';
+    const total = dayEntries.reduce((sum, e) => sum + e.hours, 0);
+    modalRoot.innerHTML = `
+      <div class="modal">
+        <h3>${t('day_title')}</h3>
+        <div class="sub">${new Date(dateStr + 'T00:00:00').toLocaleDateString(curLocale(), { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+        <div class="day-entries">
+          ${dayEntries.map((e) => {
+            const editable = ['draft', 'pending'].includes(e.status) || state.user.role === 'admin';
+            return `
+            <div class="day-entry">
+              <div class="day-entry-main">
+                <strong>${e.hours}h</strong> ${esc(e.taskTypeName || '—')} ${statusBadge(e.status)}
+                <div class="hint">
+                  ${e.startTime && e.endTime ? `${esc(e.startTime)}–${esc(e.endTime)}${e.breakMinutes ? ` · ${e.breakMinutes} min` : ''}` : ''}
+                  ${e.notes ? esc(e.notes) : ''}
+                </div>
+              </div>
+              <div class="day-entry-actions">
+                <button class="btn btn-secondary btn-sm" data-edit-entry="${e.id}">${t('edit')}</button>
+                ${editable ? `<button class="btn btn-danger btn-sm" data-delete-entry="${e.id}">${t('delete_entry')}</button>` : ''}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+        <div class="toolbar" style="margin:14px 0 0">
+          <strong>${t('day_total', { hours: total.toFixed(1) })}</strong>
+          <button class="btn btn-primary btn-sm" style="margin-left:auto" id="dayAddAnother">${t('day_addAnother')}</button>
+        </div>
+        <div class="error-text" id="dayError"></div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="dayClose">${t('cancel')}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modalRoot);
+    modalRoot.addEventListener('click', (e) => { if (e.target === modalRoot) modalRoot.remove(); });
+    document.getElementById('dayClose').onclick = () => modalRoot.remove();
+    document.getElementById('dayAddAnother').onclick = () => {
+      modalRoot.remove();
+      openEntryModal(dateStr);
+    };
+    modalRoot.querySelectorAll('[data-edit-entry]').forEach((btn) => {
+      btn.onclick = () => {
+        const entry = dayEntries.find((e) => e.id === Number(btn.getAttribute('data-edit-entry')));
+        modalRoot.remove();
+        openEntryModal(dateStr, entry);
+      };
+    });
+    modalRoot.querySelectorAll('[data-delete-entry]').forEach((btn) => {
+      btn.onclick = async () => {
+        if (!confirm(t('confirmDeleteEntry'))) return;
+        try {
+          await api(`/api/entries/${btn.getAttribute('data-delete-entry')}`, { method: 'DELETE' });
+          modalRoot.remove();
+          viewMyTime();
+        } catch (err) {
+          document.getElementById('dayError').textContent = err.message;
+        }
+      };
+    });
   }
 
   function openEntryModal(dateStr, entry) {
@@ -776,8 +862,13 @@
       const breakMinutes = Number(breakEl.value) || 0;
       const taskTypeId = document.getElementById('entryTask').value || null;
       const notes = document.getElementById('entryNotes').value;
+      const payload = { date: dateStr, hours, startTime, endTime, breakMinutes, taskTypeId, notes };
       try {
-        const result = await api('/api/entries', { method: 'POST', body: { date: dateStr, hours, startTime, endTime, breakMinutes, taskTypeId, notes } });
+        // Posting always creates now that a day can hold several entries, so an
+        // edit has to go to that entry by id or it would add a duplicate.
+        const result = entry
+          ? await api(`/api/entries/${entry.id}`, { method: 'PATCH', body: payload })
+          : await api('/api/entries', { method: 'POST', body: payload });
         const file = document.getElementById('entryFile').files[0];
         if (file) {
           const fd = new FormData();

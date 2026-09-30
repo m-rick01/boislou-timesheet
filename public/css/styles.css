@@ -105,7 +105,19 @@ th { color: var(--text-muted); font-weight: 600; font-size: 12px; text-transform
 .calendar-cell .date-num { font-size: 13px; color: var(--text-muted); }
 .calendar-cell.muted { background: #fafafa; color: #c9cdd3; cursor: default; }
 .calendar-cell.today .date-num { color: var(--accent); font-weight: 700; }
-.calendar-cell .entry-pill { margin-top: 6px; font-size: 12px; padding: 3px 6px; border-radius: 6px; }
+.calendar-cell .entry-pill { margin-top: 4px; font-size: 12px; padding: 3px 6px; border-radius: 6px; }
+.calendar-cell .entry-more { margin-top: 3px; font-size: 11px; color: var(--text-muted); }
+
+/* The day sheet: every entry logged on one date. */
+.day-entries { margin-top: 12px; }
+.day-entry {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+.day-entry:last-child { border-bottom: 0; }
+.day-entry-main { flex: 1; min-width: 0; }
+.day-entry-main .hint:empty { display: none; }
+.day-entry-actions { display: flex; gap: 6px; flex-shrink: 0; }
 
 .stat-row { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
 .stat-tile { flex: 1; min-width: 140px; background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }

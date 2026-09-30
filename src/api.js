@@ -433,23 +433,10 @@ route('POST', '/api/entries', async (req, res, ctx, params, body) => {
   // Admin adding/correcting hours on someone else's behalf goes straight to pending for review.
   const status = targetUserId !== ctx.user.id ? 'pending' : 'draft';
 
-  const existing = db.prepare('SELECT * FROM time_entries WHERE userId = ? AND date = ?').get(targetUserId, date);
-  if (existing) {
-    if (!['draft', 'pending'].includes(existing.status) && ctx.user.role !== 'admin') {
-      return sendError(res, 409, 'This entry has already been reviewed and can no longer be edited');
-    }
-    db.prepare(
-      `UPDATE time_entries SET hours = ?, startTime = ?, endTime = ?, breakMinutes = ?,
-              taskTypeId = ?, notes = ?, status = ?, updatedAt = datetime('now')
-       WHERE id = ?`
-    ).run(
-      h, resolved.startTime, resolved.endTime, resolved.breakMinutes,
-      taskTypeId || null, notes, status, existing.id
-    );
-    const row = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(existing.id);
-    return sendJson(res, 200, { entry: serializeEntry(row, taskTypeMap()) });
-  }
-
+  // A day can hold several entries — one per task worked — so posting always
+  // creates. It used to update whatever entry already existed on that date,
+  // which silently replaced the first task when someone logged a second.
+  // Changing an existing entry is PATCH /api/entries/:id.
   const info = db
     .prepare(
       `INSERT INTO time_entries (userId, date, hours, startTime, endTime, breakMinutes, taskTypeId, notes, status)
@@ -508,6 +495,30 @@ route('PATCH', '/api/entries/:id', async (req, res, ctx, params, body) => {
   db.prepare(`UPDATE time_entries SET ${updates.join(', ')} WHERE id = ?`).run(...values);
   const row = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(id);
   sendJson(res, 200, { entry: serializeEntry(row, taskTypeMap()) });
+});
+
+route('DELETE', '/api/entries/:id', async (req, res, ctx, params) => {
+  if (!requireAuth(ctx, res)) return;
+  const id = Number(params.id);
+  const entry = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(id);
+  // Same rule as editing: your own entry, while it is still draft or pending.
+  // Once reviewed it is part of an approved timesheet, and only an admin may
+  // remove it.
+  if (!assertEntryEditable(entry, ctx.user, res)) return;
+
+  // Attachment rows cascade, but the uploaded files would otherwise be orphaned
+  // on disk with nothing left pointing at them.
+  const files = db.prepare('SELECT storedName FROM attachments WHERE timeEntryId = ?').all(id);
+  for (const f of files) {
+    try {
+      fs.unlinkSync(path.join(UPLOADS_DIR, f.storedName));
+    } catch (err) {
+      if (err.code !== 'ENOENT') console.error('[entries] could not remove attachment:', err.message);
+    }
+  }
+
+  db.prepare('DELETE FROM time_entries WHERE id = ?').run(id);
+  sendJson(res, 200, { ok: true, deleted: id });
 });
 
 route('POST', '/api/entries/:id/submit', async (req, res, ctx, params) => {
