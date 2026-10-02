@@ -599,7 +599,7 @@
         </div>
       </div>
       <div class="legend">
-        <span><span class="swatch" style="background:#e5e7eb"></span>${t('status_draft')}</span>
+        <span><span class="swatch" style="background:var(--draft-bg)"></span>${t('status_draft')}</span>
         <span><span class="swatch" style="background:#fef3c7"></span>${t('status_pending')}</span>
         <span><span class="swatch" style="background:#dcfce7"></span>${t('status_approved')}</span>
         <span><span class="swatch" style="background:#fee2e2"></span>${t('status_rejected')}</span>
@@ -1411,7 +1411,7 @@
           </div>
         `).join('')}
       </div>
-      <div class="legend"><span><span class="swatch" style="background:var(--accent)"></span>${t('regularHours')}</span><span><span class="swatch" style="background:#f59e0b"></span>${t('overtime')}</span></div>
+      <div class="legend"><span><span class="swatch" style="background:var(--accent-bright)"></span>${t('regularHours')}</span><span><span class="swatch" style="background:var(--copper)"></span>${t('overtime')}</span></div>
     `;
   }
 

@@ -5,15 +5,15 @@ const { PdfDoc, measure, ellipsize } = require('./pdf');
 
 // Matches public/css/styles.css so the PDF looks like the app.
 const COLOR = {
-  primary: '#14213d',
-  accent: '#2563eb',
-  overtime: '#f59e0b',
-  text: '#1a1d21',
-  muted: '#6b7280',
-  border: '#e3e6ea',
-  tile: '#f7f8fa',
+  primary: '#0a2a36',
+  accent: '#3db6de',
+  overtime: '#9c5f38',
+  text: '#0a2a36',
+  muted: '#5b6b70',
+  border: '#e4ddd0',
+  tile: '#f7f4ef',
   white: '#ffffff',
-  headerSub: '#aab4c5',
+  headerSub: '#9fc3cf',
 };
 
 const LABELS = {
