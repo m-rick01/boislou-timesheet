@@ -73,7 +73,7 @@ const LABELS = {
 
 const FOOTER_SPACE = 46;
 
-function renderReportPdf({ report, companyName, lang = 'en', rangeLabel, employeeName }) {
+function renderReportPdf({ report, companyName, lang = 'fr', rangeLabel, employeeName }) {
   const L = LABELS[lang === 'fr' ? 'fr' : 'en'];
   const doc = new PdfDoc({ margin: 48 });
   const left = doc.margin;
