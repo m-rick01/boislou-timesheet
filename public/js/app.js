@@ -7,116 +7,8 @@
   const BASE = window.APP_BASE || '';
 
   // ---------- i18n ----------
+  // The app is French only. Strings stay keyed so they are easy to find and edit.
   const I18N = {
-    en: {
-      nav_myTime: 'My Time', nav_history: 'History', nav_profile: 'Profile',
-      nav_approvals: 'Approvals', nav_reports: 'Reports', nav_team: 'Team', nav_tasks: 'Tasks', nav_settings: 'Settings',
-      section_employee: 'Employee', section_admin: 'Admin', signOut: 'Sign Out',
-
-      login_email: 'Email', login_password: 'Password', login_signIn: 'Sign In',
-      login_forgot: 'Forgot your password?',
-      forgot_title: 'Reset your password',
-      forgot_sub: 'Enter your email address and we will send you a link to choose a new password.',
-      forgot_send: 'Send reset link',
-      forgot_sent: 'If that address has an account, a reset link is on its way. It expires in 60 minutes.',
-      forgot_back: 'Back to sign in',
-      reset_title: 'Choose a new password',
-      reset_sub: 'Set a new password for your account.',
-      reset_label: 'New password (min 8 characters)',
-      reset_confirm: 'Confirm new password',
-      reset_mismatch: 'The two passwords do not match.',
-      reset_submit: 'Save new password',
-      reset_done: 'Your password has been updated. You can sign in now.',
-
-      forcePw_title: 'Set a new password',
-      forcePw_sub: 'This is your first login — please choose a new password.',
-      forcePw_label: 'New password (min 8 characters)', continue: 'Continue',
-
-      greeting_morning: 'Good morning', greeting_afternoon: 'Good afternoon', greeting_evening: 'Good evening',
-      myTime_sub: 'Track your work hours',
-      myTime_approvedHours: 'Approved Hours (this month)',
-      myTime_newEntries: 'New Hours Entries',
-      myTime_submitAll: 'Submit All for Approval',
-      submit: 'Submit',
-      myTime_noNewEntries: 'No new entries. Click a day on the calendar to log hours.',
-      totalToSubmit: 'Total: {hours}h',
-      col_date: 'Date', col_hours: 'Hours', col_task: 'Task', col_notes: 'Notes', col_status: 'Status',
-      status_draft: 'Draft', status_pending: 'Pending', status_approved: 'Approved', status_rejected: 'Rejected',
-      dow: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-
-      entry_edit: 'Edit Entry', entry_new: 'New Entry',
-      day_title: 'Entries for this day', day_addAnother: '+ Add another task',
-      day_total: 'Total: {hours}h', delete_entry: 'Delete',
-      confirmDeleteEntry: 'Delete this entry? This cannot be undone.',
-      entry_locked: 'This entry is {status} and can no longer be edited.',
-      hours: 'Hours', task: 'Task', selectTask: 'Select task', notes: 'Notes', attachments: 'Attachments',
-      shiftStart: 'Start', shiftEnd: 'End', breakMinutes: 'Break (min)',
-      hoursFromShift: 'Calculated from your start and end times.',
-      hoursManual: 'Fill in a start and end time to calculate this automatically.',
-      cancel: 'Cancel', saveEntry: 'Save Entry', submitForApproval: 'Submit for Approval',
-
-      history_title: 'History', history_sub: 'View your past timesheet entries',
-      allStatus: 'All Status', filter: 'Filter', total: 'Total',
-      noEntriesFound: 'No entries found for this filter.',
-
-      profile_title: 'Profile', profile_sub: 'Manage your personal information',
-      personalInfo: 'Personal Information', fullName: 'Full Name', email: 'Email',
-      emailCannotChange: 'Email cannot be changed', phoneNumber: 'Phone Number',
-      address: 'Address', streetAddress: 'Street Address', city: 'City', postalCode: 'Postal Code',
-      dateOfBirth: 'Date of Birth',
-      preferences: 'Preferences', language: 'Language',
-      changePassword: 'Change Password', currentPassword: 'Current Password', newPassword: 'New Password',
-      updatePassword: 'Update Password', saveChanges: 'Save Changes', saved: 'Saved.', passwordUpdated: 'Password updated.',
-
-      approvals_title: 'Approvals', approvals_sub: 'Review and approve team timesheets',
-      employee: 'Employee', actions: 'Actions', approve: 'Approve', reject: 'Reject',
-      noApprovals: 'No {status} approvals',
-      rejectPrompt: 'Reason for rejection (optional):',
-
-      reports_title: 'Reports', reports_sub: 'Team timesheet analytics',
-      exportCsv: 'Export CSV', exportPdf: 'Export PDF', allEmployees: 'All Employees',
-      payCyclePrefix: 'Pay cycle:', totalHours: 'Total Hours', overtime: 'Overtime',
-      viewByCycle: 'By Pay Cycle', viewByYear: 'By Year', year: 'Year',
-      employees: 'Employees', entries: 'Entries',
-      entriesCountHours: '{count} entries · {hours}h', clickToExpand: 'Click to view and edit hours',
-      saveHours: 'Save Hours', hoursUpdated: 'Hours updated.', approveAllCycle: 'Approve All for This Pay Cycle',
-      addEntry: '+ Add Entry', selectEmployee: 'Select employee',
-      weeklyDist: 'Weekly Hours Distribution', employeeSummary: 'Employee Summary',
-      hoursByTask: 'Hours by Task', percentOfTotal: '% of Total',
-      daysWorked: 'Days Worked', regularHours: 'Regular Hours', totalHoursCol: 'Total Hours',
-      noApprovedEntries: 'No approved entries in this pay cycle yet.',
-      noApprovedEntriesYear: 'No approved entries in this year yet.',
-      noDataPeriod: 'No data for this period.',
-
-      team_title: 'Team', team_sub: 'Manage your team members',
-      inviteMember: '+ Invite Member', inactive: 'Inactive', edit: 'Edit',
-      inviteModal_title: 'Invite Member', inviteModal_sub: "They'll receive an email with login credentials.",
-      role: 'Role', roleEmployee: 'Employee', roleAdmin: 'Admin',
-      jobTitle: 'Job Title', department: 'Department', sendInvite: 'Send Invite',
-      country: 'Country', employment: 'Employment',
-      active: 'Active', save: 'Save',
-
-      tasks_title: 'Tasks', tasks_sub: 'Manage available tasks for timesheets',
-      addTask: '+ Add Task', countsTowardWorked: 'Counts toward worked hours',
-      doesNotCount: 'Does not count toward worked hours', deactivate: 'Deactivate', activate: 'Activate',
-      delete: 'Delete', noTaskTypes: 'No task types yet.', confirmDeleteTask: 'Delete this task type?',
-      addTaskModal_title: 'Add Task', editTaskModal_title: 'Edit Task', name: 'Name',
-
-      settings_title: 'Settings', settings_sub: 'Configure pay cycle and app settings',
-      payCycle: 'Pay Cycle', payCycleLength: 'Pay Cycle Length (days)',
-      weekly7: 'Weekly (7 days)', biweekly14: 'Biweekly (14 days)',
-      semimonthly15: 'Semi-monthly (15 days)', fourWeeks28: '4 Weeks (28 days)',
-      referenceStartDate: 'Reference Start Date',
-      referenceHint: 'The start date of any known pay cycle — used to calculate all future cycles.',
-      cyclePreviewPrefix: 'Current pay cycle preview:',
-      overtimeWeeklyThreshold: 'Weekly overtime threshold (hours)',
-      overtimeHint: 'Hours beyond this in a calendar week count as overtime.',
-      notifications: 'Notifications',
-      notifyNewAccount: 'Email new employees their account credentials',
-      notifyApproval: 'Email employees when an entry is approved',
-      notifyRejection: 'Email employees when an entry is rejected',
-      company: 'Company', companyName: 'Company Name', saveSettings: 'Save Settings',
-    },
     fr: {
       nav_myTime: 'Mes Heures', nav_history: 'Historique', nav_profile: 'Profil',
       nav_approvals: 'Approbations', nav_reports: 'Rapports', nav_team: 'Équipe', nav_tasks: 'Tâches', nav_settings: 'Paramètres',
@@ -228,10 +120,9 @@
       company: 'Entreprise', companyName: 'Nom de l’entreprise', saveSettings: 'Enregistrer les paramètres',
     },
   };
-  function curLang() { return state.user && state.user.language === 'Français' ? 'fr' : 'en'; }
-  function curLocale() { return curLang() === 'fr' ? 'fr-FR' : 'en-US'; }
+  function curLocale() { return 'fr-CA'; }
   function t(key, vars) {
-    let s = (I18N[curLang()] && I18N[curLang()][key]) || I18N.en[key] || key;
+    let s = I18N.fr[key] || key;
     if (vars) for (const k in vars) s = s.replace(`{${k}}`, vars[k]);
     return s;
   }
@@ -249,7 +140,7 @@
     let data = null;
     try { data = await res.json(); } catch (e) { /* no body */ }
     if (!res.ok) {
-      throw new Error((data && data.error) || `Request failed (${res.status})`);
+      throw new Error((data && data.error) || `La requête a échoué (${res.status})`);
     }
     return data;
   }
@@ -370,7 +261,7 @@
     app.innerHTML = `
       <div class="layout">
         <div class="sidebar">
-          <div class="brand"><img src="${BASE}/img/logo.png" alt="Orthoclic" /></div>
+          <div class="brand"><img src="${BASE}/img/logo.png" alt="Construction BoisLou" /></div>
           ${isAdmin ? '' : `<div class="section-label">${t('section_employee')}</div>`}
           <nav>${navHtml(employeeLinks)}</nav>
           ${isAdmin ? `
@@ -414,7 +305,7 @@
     app.innerHTML = `
       <div class="login-wrap">
         <div class="login-card">
-          <img class="login-logo" src="${BASE}/img/logo.png" alt="Orthoclic" />
+          <img class="login-logo" src="${BASE}/img/logo.png" alt="Construction BoisLou" />
           <form id="loginForm">
             <div class="field">
               <label>${t('login_email')}</label>
@@ -599,7 +490,7 @@
         </div>
       </div>
       <div class="legend">
-        <span><span class="swatch" style="background:#e5e7eb"></span>${t('status_draft')}</span>
+        <span><span class="swatch" style="background:var(--draft-bg)"></span>${t('status_draft')}</span>
         <span><span class="swatch" style="background:#fef3c7"></span>${t('status_pending')}</span>
         <span><span class="swatch" style="background:#dcfce7"></span>${t('status_approved')}</span>
         <span><span class="swatch" style="background:#fee2e2"></span>${t('status_rejected')}</span>
@@ -991,15 +882,6 @@
         </div>
       </div>
       <div class="card">
-        <h3 style="margin-top:0">${t('preferences')}</h3>
-        <div class="field"><label>${t('language')}</label>
-          <select id="pLang">
-            <option value="English" ${u.language === 'English' ? 'selected' : ''}>English</option>
-            <option value="Français" ${u.language === 'Français' ? 'selected' : ''}>Français</option>
-          </select>
-        </div>
-      </div>
-      <div class="card">
         <h3 style="margin-top:0">${t('changePassword')}</h3>
         <div class="field"><label>${t('currentPassword')}</label><input type="password" id="pCurPw" /></div>
         <div class="field"><label>${t('newPassword')}</label><input type="password" id="pNewPw" /></div>
@@ -1019,14 +901,8 @@
           street: document.getElementById('pStreet').value,
           city: document.getElementById('pCity').value,
           postalCode: document.getElementById('pPostal').value,
-          language: document.getElementById('pLang').value,
         } });
-        const languageChanged = state.user.language !== user.language;
         state.user = user;
-        if (languageChanged) {
-          viewProfile();
-          return;
-        }
         document.getElementById('profileMsg').style.color = 'var(--success)';
         document.getElementById('profileMsg').textContent = t('saved');
       } catch (err) {
@@ -1411,7 +1287,7 @@
           </div>
         `).join('')}
       </div>
-      <div class="legend"><span><span class="swatch" style="background:var(--accent)"></span>${t('regularHours')}</span><span><span class="swatch" style="background:#f59e0b"></span>${t('overtime')}</span></div>
+      <div class="legend"><span><span class="swatch" style="background:var(--accent-bright)"></span>${t('regularHours')}</span><span><span class="swatch" style="background:var(--copper)"></span>${t('overtime')}</span></div>
     `;
   }
 
@@ -1517,14 +1393,6 @@
           </div>
           <div class="checkbox-row"><input type="checkbox" id="emActive" ${u.active ? 'checked' : ''}/> <label for="emActive" style="margin:0">${t('active')}</label></div>
 
-          <div class="form-section">${t('preferences')}</div>
-          <div class="field"><label>${t('language')}</label>
-            <select id="emLang">
-              <option value="English" ${u.language === 'English' ? 'selected' : ''}>English</option>
-              <option value="Français" ${u.language === 'Français' ? 'selected' : ''}>Français</option>
-            </select>
-          </div>
-
           <div class="error-text" id="emError"></div>
           <div class="modal-actions">
             <button type="button" class="btn btn-secondary" id="emCancel">${t('cancel')}</button>
@@ -1550,7 +1418,6 @@
           department: document.getElementById('emDept').value,
           role: document.getElementById('emRole').value,
           active: document.getElementById('emActive').checked,
-          language: document.getElementById('emLang').value,
         } });
         modalRoot.remove();
         viewTeam();

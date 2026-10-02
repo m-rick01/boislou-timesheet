@@ -61,7 +61,7 @@ function serveStatic(req, res, relPath) {
   let filePath = path.join(PUBLIC_DIR, relPath);
   // Prevent path traversal.
   if (!filePath.startsWith(PUBLIC_DIR)) {
-    return sendError(res, 403, 'Forbidden');
+    return sendError(res, 403, 'Accès refusé');
   }
   fs.stat(filePath, (err, stat) => {
     if (err || !stat.isFile()) {
@@ -94,7 +94,7 @@ const server = http.createServer(async (req, res) => {
 
   if (pathname.startsWith('/api/')) {
     const handled = await handleApi(req, res, ctx);
-    if (!handled) sendError(res, 404, 'Not found');
+    if (!handled) sendError(res, 404, 'Introuvable');
     return;
   }
 

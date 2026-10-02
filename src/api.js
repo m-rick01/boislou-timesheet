@@ -30,7 +30,7 @@ function getSettings() {
 
 function requireAuth(ctx, res) {
   if (!ctx.user) {
-    sendError(res, 401, 'Not authenticated');
+    sendError(res, 401, 'Non connecté');
     return false;
   }
   return true;
@@ -39,7 +39,7 @@ function requireAuth(ctx, res) {
 function requireAdmin(ctx, res) {
   if (!requireAuth(ctx, res)) return false;
   if (ctx.user.role !== 'admin') {
-    sendError(res, 403, 'Admin access required');
+    sendError(res, 403, 'Accès administrateur requis');
     return false;
   }
   return true;
@@ -70,10 +70,10 @@ function route(method, pattern, handler) {
 // ---------- AUTH ----------
 route('POST', '/api/login', async (req, res, ctx, params, body) => {
   const { email, password } = body;
-  if (!email || !password) return sendError(res, 400, 'Email and password required');
+  if (!email || !password) return sendError(res, 400, 'Le courriel et le mot de passe sont obligatoires');
   const user = db.prepare('SELECT * FROM users WHERE email = ? AND active = 1').get(String(email).toLowerCase());
   if (!user || !auth.verifyPassword(password, user.passwordHash)) {
-    return sendError(res, 401, 'Invalid email or password');
+    return sendError(res, 401, 'Courriel ou mot de passe invalide');
   }
   const session = auth.createSession(user.id);
   setCookie(res, 'session', session.token, { maxAgeSeconds: auth.SESSION_DAYS * 24 * 60 * 60 });
@@ -95,11 +95,11 @@ route('POST', '/api/change-password', async (req, res, ctx, params, body) => {
   if (!requireAuth(ctx, res)) return;
   const { currentPassword, newPassword } = body;
   if (!newPassword || newPassword.length < 8) {
-    return sendError(res, 400, 'New password must be at least 8 characters');
+    return sendError(res, 400, 'Le nouveau mot de passe doit contenir au moins 8 caractères');
   }
   if (!ctx.user.mustChangePassword) {
     if (!currentPassword || !auth.verifyPassword(currentPassword, ctx.user.passwordHash)) {
-      return sendError(res, 401, 'Current password is incorrect');
+      return sendError(res, 401, 'Le mot de passe actuel est incorrect');
     }
   }
   const hash = auth.hashPassword(newPassword);
@@ -145,26 +145,15 @@ route('POST', '/api/forgot-password', async (req, res, ctx, params, body) => {
   const settings = getSettings();
   const appUrl = process.env.APP_URL || '/';
   const link = `${appUrl}#/reset?token=${token}`;
-  const fr = user.language === 'Français';
   sendMail({
     to: user.email,
-    subject: fr
-      ? `Réinitialisation de votre mot de passe ${settings.companyName}`
-      : `Reset your ${settings.companyName} password`,
-    html: fr
-      ? `
+    subject: `Réinitialisation de votre mot de passe ${settings.companyName}`,
+    html: `
         <p>Bonjour ${user.name},</p>
         <p>Une réinitialisation de mot de passe a été demandée pour votre compte WorkTrack.</p>
         <p><a href="${link}">Choisir un nouveau mot de passe</a></p>
         <p>Ce lien expire dans ${auth.RESET_MINUTES} minutes et ne peut servir qu'une seule fois.</p>
         <p>Si vous n'avez pas fait cette demande, ignorez ce message : votre mot de passe reste inchangé.</p>
-      `
-      : `
-        <p>Hi ${user.name},</p>
-        <p>A password reset was requested for your WorkTrack account.</p>
-        <p><a href="${link}">Choose a new password</a></p>
-        <p>This link expires in ${auth.RESET_MINUTES} minutes and can only be used once.</p>
-        <p>If you didn't ask for this, you can ignore this email — your password stays as it is.</p>
       `,
   }).catch((err) => console.error('[mail] failed to send password-reset email:', err.message));
 
@@ -174,11 +163,11 @@ route('POST', '/api/forgot-password', async (req, res, ctx, params, body) => {
 route('POST', '/api/reset-password', async (req, res, ctx, params, body) => {
   const token = String(body.token || '');
   const password = String(body.password || '');
-  if (password.length < 8) return sendError(res, 400, 'New password must be at least 8 characters');
+  if (password.length < 8) return sendError(res, 400, 'Le nouveau mot de passe doit contenir au moins 8 caractères');
 
   const reset = auth.findPasswordReset(token);
   const user = reset ? db.prepare('SELECT * FROM users WHERE id = ? AND active = 1').get(reset.userId) : null;
-  if (!user) return sendError(res, 400, 'This reset link is invalid or has expired.');
+  if (!user) return sendError(res, 400, 'Ce lien de réinitialisation est invalide ou a expiré.');
 
   db.prepare('UPDATE users SET passwordHash = ?, mustChangePassword = 0 WHERE id = ?').run(
     auth.hashPassword(password),
@@ -208,7 +197,7 @@ route('PATCH', '/api/profile', async (req, res, ctx, params, body) => {
     updates.push('name = ?');
     values.push(String(body.name).trim());
   }
-  if (!updates.length) return sendError(res, 400, 'No fields to update');
+  if (!updates.length) return sendError(res, 400, 'Aucun champ à mettre à jour');
   values.push(ctx.user.id);
   db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...values);
   const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(ctx.user.id);
@@ -225,11 +214,11 @@ route('GET', '/api/users', async (req, res, ctx) => {
 route('POST', '/api/users', async (req, res, ctx, params, body) => {
   if (!requireAdmin(ctx, res)) return;
   const { name, email, role, jobTitle, department } = body;
-  if (!name || !email || !role) return sendError(res, 400, 'Name, email and role are required');
-  if (!['admin', 'employee'].includes(role)) return sendError(res, 400, 'Invalid role');
+  if (!name || !email || !role) return sendError(res, 400, 'Le nom, le courriel et le rôle sont obligatoires');
+  if (!['admin', 'employee'].includes(role)) return sendError(res, 400, 'Rôle invalide');
   const normalizedEmail = String(email).toLowerCase().trim();
   const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(normalizedEmail);
-  if (existing) return sendError(res, 409, 'A user with this email already exists');
+  if (existing) return sendError(res, 409, 'Un utilisateur avec ce courriel existe déjà');
 
   const tempPassword = auth.generateTempPassword();
   const hash = auth.hashPassword(tempPassword);
@@ -245,13 +234,13 @@ route('POST', '/api/users', async (req, res, ctx, params, body) => {
     const appUrl = process.env.APP_URL || '/';
     sendMail({
       to: normalizedEmail,
-      subject: `Your ${settings.companyName} WorkTrack account`,
+      subject: `Votre compte WorkTrack ${settings.companyName}`,
       html: `
-        <p>Hi ${name},</p>
-        <p>An account has been created for you on ${settings.companyName}'s WorkTrack Pro.</p>
-        <p><strong>Login:</strong> ${normalizedEmail}<br/>
-        <strong>Temporary password:</strong> ${tempPassword}</p>
-        <p><a href="${appUrl}">Sign in here</a>. You'll be asked to set a new password on first login.</p>
+        <p>Bonjour ${name},</p>
+        <p>Un compte a été créé pour vous sur WorkTrack Pro de ${settings.companyName}.</p>
+        <p><strong>Identifiant :</strong> ${normalizedEmail}<br/>
+        <strong>Mot de passe temporaire :</strong> ${tempPassword}</p>
+        <p><a href="${appUrl}">Connectez-vous ici</a>. Vous devrez choisir un nouveau mot de passe à la première connexion.</p>
       `,
     }).catch((err) => console.error('[mail] failed to send new-account email:', err.message));
   }
@@ -264,7 +253,7 @@ route('PATCH', '/api/users/:id', async (req, res, ctx, params, body) => {
   if (!requireAdmin(ctx, res)) return;
   const id = Number(params.id);
   const target = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
-  if (!target) return sendError(res, 404, 'User not found');
+  if (!target) return sendError(res, 404, 'Utilisateur introuvable');
   // Everything an employee can set on their own Profile, plus the admin-managed
   // fields, so an admin can correct anything a member entered.
   const fields = [
@@ -279,7 +268,7 @@ route('PATCH', '/api/users/:id', async (req, res, ctx, params, body) => {
       values.push(f === 'active' ? (body[f] ? 1 : 0) : String(body[f]));
     }
   }
-  if (!updates.length) return sendError(res, 400, 'No fields to update');
+  if (!updates.length) return sendError(res, 400, 'Aucun champ à mettre à jour');
   values.push(id);
   db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...values);
   const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
@@ -299,7 +288,7 @@ route('GET', '/api/tasktypes', async (req, res, ctx) => {
 route('POST', '/api/tasktypes', async (req, res, ctx, params, body) => {
   if (!requireAdmin(ctx, res)) return;
   const { name, countsAsWorked = true } = body;
-  if (!name || !String(name).trim()) return sendError(res, 400, 'Name is required');
+  if (!name || !String(name).trim()) return sendError(res, 400, 'Le nom est obligatoire');
   const info = db
     .prepare('INSERT INTO task_types (name, countsAsWorked, active, sortOrder) VALUES (?, ?, 1, ?)')
     .run(name.trim(), countsAsWorked ? 1 : 0, Date.now() % 1000000);
@@ -311,7 +300,7 @@ route('PATCH', '/api/tasktypes/:id', async (req, res, ctx, params, body) => {
   if (!requireAdmin(ctx, res)) return;
   const id = Number(params.id);
   const existing = db.prepare('SELECT * FROM task_types WHERE id = ?').get(id);
-  if (!existing) return sendError(res, 404, 'Task type not found');
+  if (!existing) return sendError(res, 404, 'Type de tâche introuvable');
   const updates = [];
   const values = [];
   if (body.name !== undefined) {
@@ -326,7 +315,7 @@ route('PATCH', '/api/tasktypes/:id', async (req, res, ctx, params, body) => {
     updates.push('active = ?');
     values.push(body.active ? 1 : 0);
   }
-  if (!updates.length) return sendError(res, 400, 'No fields to update');
+  if (!updates.length) return sendError(res, 400, 'Aucun champ à mettre à jour');
   values.push(id);
   db.prepare(`UPDATE task_types SET ${updates.join(', ')} WHERE id = ?`).run(...values);
   const row = db.prepare('SELECT * FROM task_types WHERE id = ?').get(id);
@@ -360,7 +349,7 @@ route('GET', '/api/entries', async (req, res, ctx, params, body, query) => {
   const ttMap = taskTypeMap();
   const targetUserId = query.userId ? Number(query.userId) : ctx.user.id;
   if (targetUserId !== ctx.user.id && ctx.user.role !== 'admin') {
-    return sendError(res, 403, 'Not allowed');
+    return sendError(res, 403, 'Action non permise');
   }
   let sql = 'SELECT * FROM time_entries WHERE userId = ?';
   const args = [targetUserId];
@@ -392,24 +381,24 @@ function resolveEntryHours(body, res) {
 
   if (startTime || endTime) {
     if (!startTime || !endTime) {
-      sendError(res, 400, 'A shift needs both a start and an end time');
+      sendError(res, 400, 'Un quart de travail doit avoir une heure de début et une heure de fin');
       return null;
     }
     const h = shiftHours(startTime, endTime, breakMinutes);
     if (h === null) {
-      sendError(res, 400, 'Check the times: use HH:MM, and the break cannot be as long as the shift');
+      sendError(res, 400, 'Vérifiez les heures : utilisez le format HH:MM, et la pause ne peut pas être aussi longue que le quart');
       return null;
     }
     return { hours: h, startTime, endTime, breakMinutes };
   }
 
   if (body.hours === undefined) {
-    sendError(res, 400, 'Enter either a start and end time, or a number of hours');
+    sendError(res, 400, 'Entrez une heure de début et de fin, ou un nombre d’heures');
     return null;
   }
   const h = Number(body.hours);
   if (Number.isNaN(h) || h < 0 || h > 24) {
-    sendError(res, 400, 'Hours must be between 0 and 24');
+    sendError(res, 400, 'Les heures doivent être entre 0 et 24');
     return null;
   }
   return { hours: h, startTime: '', endTime: '', breakMinutes: 0 };
@@ -418,7 +407,7 @@ function resolveEntryHours(body, res) {
 route('POST', '/api/entries', async (req, res, ctx, params, body) => {
   if (!requireAuth(ctx, res)) return;
   const { date, taskTypeId, notes = '' } = body;
-  if (!date) return sendError(res, 400, 'Date is required');
+  if (!date) return sendError(res, 400, 'La date est obligatoire');
   const resolved = resolveEntryHours(body, res);
   if (!resolved) return;
   const h = resolved.hours;
@@ -427,7 +416,7 @@ route('POST', '/api/entries', async (req, res, ctx, params, body) => {
   if (body.userId !== undefined && ctx.user.role === 'admin') {
     targetUserId = Number(body.userId);
     if (!db.prepare('SELECT id FROM users WHERE id = ?').get(targetUserId)) {
-      return sendError(res, 404, 'User not found');
+      return sendError(res, 404, 'Utilisateur introuvable');
     }
   }
   // Admin adding/correcting hours on someone else's behalf goes straight to pending for review.
@@ -452,15 +441,15 @@ route('POST', '/api/entries', async (req, res, ctx, params, body) => {
 
 function assertEntryEditable(entry, user, res) {
   if (!entry) {
-    sendError(res, 404, 'Entry not found');
+    sendError(res, 404, 'Entrée introuvable');
     return false;
   }
   if (entry.userId !== user.id && user.role !== 'admin') {
-    sendError(res, 403, 'Not allowed');
+    sendError(res, 403, 'Action non permise');
     return false;
   }
   if (user.role !== 'admin' && !['draft', 'pending'].includes(entry.status)) {
-    sendError(res, 409, 'This entry has already been reviewed and can no longer be edited');
+    sendError(res, 409, 'Cette entrée a déjà été révisée et ne peut plus être modifiée');
     return false;
   }
   return true;
@@ -489,7 +478,7 @@ route('PATCH', '/api/entries/:id', async (req, res, ctx, params, body) => {
     updates.push('notes = ?');
     values.push(String(body.notes));
   }
-  if (!updates.length) return sendError(res, 400, 'No fields to update');
+  if (!updates.length) return sendError(res, 400, 'Aucun champ à mettre à jour');
   updates.push("updatedAt = datetime('now')");
   values.push(id);
   db.prepare(`UPDATE time_entries SET ${updates.join(', ')} WHERE id = ?`).run(...values);
@@ -525,8 +514,8 @@ route('POST', '/api/entries/:id/submit', async (req, res, ctx, params) => {
   if (!requireAuth(ctx, res)) return;
   const id = Number(params.id);
   const entry = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(id);
-  if (!entry || entry.userId !== ctx.user.id) return sendError(res, 404, 'Entry not found');
-  if (entry.status !== 'draft') return sendError(res, 409, 'Only draft entries can be submitted');
+  if (!entry || entry.userId !== ctx.user.id) return sendError(res, 404, 'Entrée introuvable');
+  if (entry.status !== 'draft') return sendError(res, 409, 'Seules les entrées en brouillon peuvent être soumises');
   db.prepare("UPDATE time_entries SET status = 'pending', updatedAt = datetime('now') WHERE id = ?").run(id);
   const row = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(id);
   sendJson(res, 200, { entry: serializeEntry(row, taskTypeMap()) });
@@ -537,7 +526,7 @@ route('POST', '/api/entries/:id/attachments', async (req, res, ctx, params, body
   const id = Number(params.id);
   const entry = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(id);
   if (!assertEntryEditable(entry, ctx.user, res)) return;
-  if (!multipart || !multipart.files.length) return sendError(res, 400, 'No file uploaded');
+  if (!multipart || !multipart.files.length) return sendError(res, 400, 'Aucun fichier téléversé');
   const saved = [];
   for (const file of multipart.files) {
     const storedName = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}-${file.filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
@@ -556,8 +545,8 @@ route('GET', '/api/entries/:id/attachments', async (req, res, ctx, params) => {
   if (!requireAuth(ctx, res)) return;
   const id = Number(params.id);
   const entry = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(id);
-  if (!entry) return sendError(res, 404, 'Entry not found');
-  if (entry.userId !== ctx.user.id && ctx.user.role !== 'admin') return sendError(res, 403, 'Not allowed');
+  if (!entry) return sendError(res, 404, 'Entrée introuvable');
+  if (entry.userId !== ctx.user.id && ctx.user.role !== 'admin') return sendError(res, 403, 'Action non permise');
   const rows = db.prepare('SELECT * FROM attachments WHERE timeEntryId = ?').all(id);
   sendJson(res, 200, { attachments: rows });
 });
@@ -566,13 +555,13 @@ route('GET', '/api/attachments/:id/download', async (req, res, ctx, params) => {
   if (!requireAuth(ctx, res)) return;
   const id = Number(params.id);
   const att = db.prepare('SELECT * FROM attachments WHERE id = ?').get(id);
-  if (!att) return sendError(res, 404, 'Not found');
+  if (!att) return sendError(res, 404, 'Introuvable');
   const entry = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(att.timeEntryId);
   if (!entry || (entry.userId !== ctx.user.id && ctx.user.role !== 'admin')) {
-    return sendError(res, 403, 'Not allowed');
+    return sendError(res, 403, 'Action non permise');
   }
   const filePath = path.join(UPLOADS_DIR, att.storedName);
-  if (!fs.existsSync(filePath)) return sendError(res, 404, 'File missing on disk');
+  if (!fs.existsSync(filePath)) return sendError(res, 404, 'Fichier introuvable sur le serveur');
   res.writeHead(200, {
     'Content-Type': att.mimeType || 'application/octet-stream',
     'Content-Disposition': `attachment; filename="${att.filename.replace(/"/g, '')}"`,
@@ -599,8 +588,8 @@ async function reviewEntry(req, res, ctx, params, body, approve) {
   if (!requireAdmin(ctx, res)) return;
   const id = Number(params.id);
   const entry = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(id);
-  if (!entry) return sendError(res, 404, 'Entry not found');
-  if (entry.status !== 'pending') return sendError(res, 409, 'Only pending entries can be reviewed');
+  if (!entry) return sendError(res, 404, 'Entrée introuvable');
+  if (entry.status !== 'pending') return sendError(res, 409, 'Seules les entrées en attente peuvent être révisées');
   const status = approve ? 'approved' : 'rejected';
   const reason = approve ? '' : String(body?.reason || '');
   db.prepare(
@@ -612,13 +601,14 @@ async function reviewEntry(req, res, ctx, params, body, approve) {
   const settings = getSettings();
   const shouldNotify = approve ? settings.notifyApproval : settings.notifyRejection;
   if (shouldNotify && employee) {
+    const statusFr = approve ? 'approuvée' : 'refusée';
     sendMail({
       to: employee.email,
-      subject: `Timesheet entry ${status} — ${entry.date}`,
+      subject: `Entrée de temps ${statusFr} — ${entry.date}`,
       html: `
-        <p>Hi ${employee.name},</p>
-        <p>Your timesheet entry for <strong>${entry.date}</strong> (${entry.hours}h) has been <strong>${status}</strong>.</p>
-        ${!approve && reason ? `<p>Reason: ${reason}</p>` : ''}
+        <p>Bonjour ${employee.name},</p>
+        <p>Votre entrée de temps du <strong>${entry.date}</strong> (${entry.hours} h) a été <strong>${statusFr}</strong>.</p>
+        ${!approve && reason ? `<p>Raison : ${reason}</p>` : ''}
       `,
     }).catch((err) => console.error('[mail] failed to send review email:', err.message));
   }
@@ -774,7 +764,17 @@ route('GET', '/api/reports/csv', async (req, res, ctx, params, body, query) => {
        WHERE te.date >= ? AND te.date <= ? ORDER BY u.name, te.date`
     )
     .all(cycle.start, cycle.end);
-  const csv = toCsv(rows, ['date', 'employee', 'hours', 'task', 'status']);
+  const STATUS_FR = { draft: 'Brouillon', pending: 'En attente', approved: 'Approuvée', rejected: 'Refusée' };
+  const csv = toCsv(
+    rows.map((r) => ({
+      Date: r.date,
+      Employé: r.employee,
+      Heures: r.hours,
+      Tâche: r.task,
+      Statut: STATUS_FR[r.status] || r.status,
+    })),
+    ['Date', 'Employé', 'Heures', 'Tâche', 'Statut']
+  );
   res.writeHead(200, {
     'Content-Type': 'text/csv; charset=utf-8',
     'Content-Disposition': `attachment; filename="worktrack-report-${cycle.start}_to_${cycle.end}.csv"`,
@@ -786,7 +786,7 @@ route('GET', '/api/reports/pdf', async (req, res, ctx, params, body, query) => {
   if (!requireAdmin(ctx, res)) return;
   const settings = getSettings();
   const report = buildReport(query, settings);
-  const lang = ctx.user.language === 'Français' ? 'fr' : 'en';
+  const lang = 'fr';
 
   const employee = query.userId
     ? db.prepare('SELECT name FROM users WHERE id = ?').get(Number(query.userId))
@@ -838,7 +838,7 @@ route('PATCH', '/api/settings', async (req, res, ctx, params, body) => {
       values.push(boolFields.includes(f) ? (body[f] ? 1 : 0) : body[f]);
     }
   }
-  if (!updates.length) return sendError(res, 400, 'No fields to update');
+  if (!updates.length) return sendError(res, 400, 'Aucun champ à mettre à jour');
   db.prepare(`UPDATE settings SET ${updates.join(', ')} WHERE id = 1`).run(...values);
   sendJson(res, 200, { settings: getSettings() });
 });
@@ -878,7 +878,7 @@ async function handleApi(req, res, ctx) {
       await r.handler(req, res, ctx, params, body, query, multipart);
     } catch (err) {
       console.error('[api] error handling', req.method, pathname, err);
-      if (!res.headersSent) sendError(res, 500, 'Internal server error');
+      if (!res.headersSent) sendError(res, 500, 'Erreur interne du serveur');
     }
     return true;
   }
