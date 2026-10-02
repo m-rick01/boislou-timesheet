@@ -370,7 +370,7 @@
     app.innerHTML = `
       <div class="layout">
         <div class="sidebar">
-          <div class="brand"><img src="${BASE}/img/logo.png" alt="Orthoclic" /></div>
+          <div class="brand"><img src="${BASE}/img/logo.png" alt="Construction BoisLou" /></div>
           ${isAdmin ? '' : `<div class="section-label">${t('section_employee')}</div>`}
           <nav>${navHtml(employeeLinks)}</nav>
           ${isAdmin ? `
@@ -414,7 +414,7 @@
     app.innerHTML = `
       <div class="login-wrap">
         <div class="login-card">
-          <img class="login-logo" src="${BASE}/img/logo.png" alt="Orthoclic" />
+          <img class="login-logo" src="${BASE}/img/logo.png" alt="Construction BoisLou" />
           <form id="loginForm">
             <div class="field">
               <label>${t('login_email')}</label>

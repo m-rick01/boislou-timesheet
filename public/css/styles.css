@@ -33,7 +33,7 @@ input, select, textarea { font-family: inherit; }
   display: flex; flex-direction: column; padding: 20px 0;
 }
 .sidebar .brand { padding: 0 20px 20px; font-weight: 700; font-size: 18px; }
-.sidebar .brand img { max-width: 150px; height: auto; display: block; }
+.sidebar .brand img { max-width: 150px; height: auto; display: block; background: #fff; border-radius: 8px; padding: 8px; }
 .sidebar .section-label {
   padding: 14px 20px 6px; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
   color: rgba(255,255,255,0.5);
